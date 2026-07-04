@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>MJC · Painel de Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      .glass {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+      }
+      .bg-scene {
+        background:
+          radial-gradient(circle at 15% 15%, #dbeafe, transparent 45%),
+          radial-gradient(circle at 85% 20%, #ede9fe, transparent 45%),
+          radial-gradient(circle at 50% 100%, #cffafe, transparent 50%), #f1f5f9;
+      }
+      .bg-blur-building {
+        background-image: url("predio-mjc.jpg");
+        background-size: cover;
+        background-position: center;
+        filter: blur(8px);
+        opacity: 0.1;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+      }
+
+      @media (max-width: 640px) {
+        .glass {
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+        .bg-blur-building {
+          filter: blur(5px);
+        }
+      }
+    </style>
+  </head>
+
+  <body class="bg-scene text-slate-800 min-h-screen overflow-x-hidden">
+    <div class="fixed inset-0 bg-blur-building pointer-events-none"></div>
+
+    <div
+      class="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10 space-y-8 sm:space-y-12"
+    >
+      <!-- HEADER COM LOGO CENTRALIZADO -->
+      <header class="flex flex-col items-center text-center gap-4">
+        <img
+          src="mjcsemfundo.png"
+          alt="MJC"
+          class="h-20 sm:h-28 md:h-36 object-contain drop-shadow-[0_4px_30px_rgba(59,130,246,0.20)]"
+        />
+        <div>
+          <h1
+            class="text-2xl sm:text-3xl md:text-4xl font-semibold text-slate-900"
+          >
+            Painel de Gestão
+          </h1>
+          <p class="text-sm sm:text-base text-slate-500 mt-2">
+            Bem-vindo de volta, Maribel 👋 ·
+            <span class="text-slate-700">Mês atual / 2026</span>
+          </p>
+        </div>
+      </header>
+
+      <!-- HERO METRICS -->
+      <section
+        id="kpis"
+        class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-6"
+      ></section>
+
+      <!-- GRID: imóveis + alertas -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
+        <section class="xl:col-span-2 space-y-5">
+          <h2
+            class="text-xl sm:text-2xl font-semibold flex items-center gap-3 text-slate-900"
+          >
+            <i
+              data-lucide="home"
+              class="w-6 h-6 sm:w-7 sm:h-7 text-sky-500"
+            ></i>
+            Unidades
+          </h2>
+          <div
+            id="imoveis"
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6"
+          ></div>
+        </section>
+
+        <section class="space-y-5">
+          <h2
+            class="text-xl sm:text-2xl font-semibold flex items-center gap-3 text-slate-900"
+          >
+            <i
+              data-lucide="alert-triangle"
+              class="w-6 h-6 sm:w-7 sm:h-7 text-amber-500"
+            ></i>
+            Alertas
+          </h2>
+          <div
+            id="alertas"
+            class="glass rounded-2xl p-4 sm:p-5 space-y-4"
+          ></div>
+        </section>
+      </div>
+
+      <!-- GRÁFICO -->
+      <section class="glass rounded-2xl p-5 sm:p-8">
+        <h2
+          class="text-xl sm:text-2xl font-semibold flex items-center gap-3 mb-6 sm:mb-8 text-slate-900"
+        >
+          <i
+            data-lucide="trending-up"
+            class="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500"
+          ></i>
+          Rentabilidade — Últimos 6 meses
+        </h2>
+        <div class="h-64 sm:h-96"><canvas id="chart"></canvas></div>
+      </section>
+    </div>
+
+    <script>
+      // ---------------------------------------------------------------
+      // DADOS MOCK (trocar por fetch do webhook N8N depois)
+      // ---------------------------------------------------------------
+      const kpis = [
+        {
+          label: "Taxa de Ocupação",
+          value: "75%",
+          sub: "3 de 4 locados",
+          accent: "#10b981",
+        },
+        {
+          label: "Faturamento Bruto",
+          value: "R$ 9.400",
+          sub: "Julho / 2026",
+          accent: "#0ea5e9",
+        },
+        {
+          label: "Despesas Previstas",
+          value: "R$ 2.850",
+          sub: "Cond. + IPTU + Manut.",
+          accent: "#f59e0b",
+        },
+        {
+          label: "Lucro Líquido",
+          value: "R$ 6.550",
+          sub: "+8% vs mês anterior",
+          accent: "#8b5cf6",
+        },
+      ];
+
+      const imoveis = [
+        {
+          unidade: "Apto 101",
+          status: "Ocupado",
+          inquilino: "Carla Nunes",
+          dias: 210,
+          aluguel: "R$ 2.400",
+        },
+        {
+          unidade: "Apto 102",
+          status: "Ocupado",
+          inquilino: "Rafael Lima",
+          dias: 30,
+          aluguel: "R$ 2.500",
+        },
+        {
+          unidade: "Apto 201",
+          status: "Em Manutenção",
+          inquilino: "Marina Souza",
+          dias: 120,
+          aluguel: "R$ 2.700",
+        },
+        {
+          unidade: "Apto 202",
+          status: "Livre",
+          inquilino: "—",
+          dias: null,
+          aluguel: "R$ 2.600",
+        },
+      ];
+
+      const alertas = [
+        {
+          icon: "clock",
+          tone: "amber",
+          text: "Contrato do Apto 102 vence em 30 dias.",
+          cta: "Iniciar renovação",
+        },
+        {
+          icon: "wrench",
+          tone: "orange",
+          text: "Apto 201 relatou problema no ar-condicionado.",
+          cta: "Abrir chamado",
+        },
+        {
+          icon: "alert-triangle",
+          tone: "red",
+          text: "Pagamento do Apto 101 atrasado há 2 dias.",
+          cta: "Notificar inquilino",
+        },
+      ];
+
+      const chartData = {
+        labels: ["Fev", "Mar", "Abr", "Mai", "Jun", "Jul"],
+        faturamento: [8900, 9100, 9400, 9400, 9200, 9400],
+        despesas: [2600, 2700, 2500, 3100, 2900, 2850],
+      };
+
+      const statusStyles = {
+        Ocupado:
+          "background:rgba(16,185,129,.15);color:#047857;border-color:rgba(16,185,129,.35)",
+        Livre:
+          "background:rgba(100,116,139,.12);color:#475569;border-color:rgba(100,116,139,.3)",
+        "Em Manutenção":
+          "background:rgba(245,158,11,.15);color:#b45309;border-color:rgba(245,158,11,.35)",
+      };
+      const toneColor = { amber: "#d97706", orange: "#ea580c", red: "#dc2626" };
+
+      // ---------------------------------------------------------------
+      // RENDER
+      // ---------------------------------------------------------------
+      document.getElementById("kpis").innerHTML = kpis
+        .map(
+          (k) => `
+  <div class="glass relative overflow-hidden rounded-2xl p-4 sm:p-7">
+    <div class="absolute -top-8 -right-8 h-28 w-28 rounded-full blur-2xl"
+         style="background:radial-gradient(circle,${k.accent}44,transparent 70%)"></div>
+    <p class="text-xs sm:text-sm uppercase tracking-wider text-slate-500">${k.label}</p>
+    <p class="mt-2 sm:mt-3 text-xl sm:text-3xl font-semibold text-slate-900">${k.value}</p>
+    <p class="mt-1 text-xs sm:text-sm text-slate-500">${k.sub}</p>
+  </div>`,
+        )
+        .join("");
+
+      document.getElementById("imoveis").innerHTML = imoveis
+        .map(
+          (i) => `
+  <div class="glass rounded-2xl p-5 sm:p-7 flex flex-col hover:bg-white/70 transition-all">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2 text-lg font-semibold text-slate-900">
+        <i data-lucide="home" class="w-5 h-5 text-slate-500"></i> ${i.unidade}
+      </div>
+      <span class="text-xs px-3 py-1.5 rounded-full border font-medium" style="${statusStyles[i.status]}">${i.status}</span>
+    </div>
+    <div class="mt-5 space-y-2.5 text-base">
+      <div class="flex justify-between"><span class="text-slate-400">Inquilino</span><span class="text-slate-700">${i.inquilino}</span></div>
+      <div class="flex justify-between"><span class="text-slate-400">Fim do contrato</span><span class="text-slate-700">${i.dias ? i.dias + " dias" : "—"}</span></div>
+      <div class="flex justify-between"><span class="text-slate-400">Aluguel</span><span class="font-medium text-slate-900">${i.aluguel}</span></div>
+    </div>
+    <div class="mt-5 flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <button class="flex-1 text-sm py-2.5 rounded-lg bg-white/60 hover:bg-white border border-slate-200 text-slate-700 transition">Ver Histórico</button>
+      <button class="flex-1 text-sm py-2.5 rounded-lg border transition font-medium"
+        style="background:rgba(14,165,233,.12);color:#0369a1;border-color:rgba(14,165,233,.3)">Registrar Despesa</button>
+    </div>
+  </div>`,
+        )
+        .join("");
+
+      document.getElementById("alertas").innerHTML = alertas
+        .map(
+          (a) => `
+  <div class="rounded-xl border p-4 transition-all bg-white/50" style="border-color:${toneColor[a.tone]}44">
+    <div class="flex items-start gap-3">
+      <i data-lucide="${a.icon}" class="w-6 h-6 mt-0.5" style="color:${toneColor[a.tone]}"></i>
+      <div class="flex-1">
+        <p class="text-base text-slate-700">${a.text}</p>
+        <button class="mt-2 text-sm font-medium underline underline-offset-2 py-1" style="color:${toneColor[a.tone]}">${a.cta} →</button>
+      </div>
+    </div>
+  </div>`,
+        )
+        .join("");
+
+      // ---------------------------------------------------------------
+      // GRÁFICO
+      // ---------------------------------------------------------------
+      const ctx = document.getElementById("chart");
+      const grad = (color) => {
+        const g = ctx.getContext("2d").createLinearGradient(0, 0, 0, 384);
+        g.addColorStop(0, color + "55");
+        g.addColorStop(1, color + "00");
+        return g;
+      };
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: chartData.labels,
+          datasets: [
+            {
+              label: "Faturamento",
+              data: chartData.faturamento,
+              borderColor: "#0ea5e9",
+              backgroundColor: grad("#0ea5e9"),
+              fill: true,
+              tension: 0.4,
+              borderWidth: 3,
+              pointRadius: 4,
+            },
+            {
+              label: "Despesas",
+              data: chartData.despesas,
+              borderColor: "#f59e0b",
+              backgroundColor: grad("#f59e0b"),
+              fill: true,
+              tension: 0.4,
+              borderWidth: 3,
+              pointRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: "#475569", boxWidth: 14, font: { size: 13 } },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { color: "#64748b", font: { size: 12 } },
+              grid: { color: "rgba(15,23,42,.06)" },
+            },
+            y: {
+              ticks: { color: "#64748b", font: { size: 12 } },
+              grid: { color: "rgba(15,23,42,.06)" },
+            },
+          },
+        },
+      });
+
+      lucide.createIcons();
+    </script>
+  </body>
+</html>
